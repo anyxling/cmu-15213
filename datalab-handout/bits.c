@@ -128,9 +128,16 @@ NOTES:
  *   2. Use the BDD checker to formally verify that your solutions produce 
  *      the correct answers.
  */
-
-
 #endif
+
+#include <stdio.h>
+void print_bin(int x) {
+  for (int i = 31; i >= 0; i--) {
+    printf("%d", (x >> i) & 1);
+    if (i % 4 == 0) printf(" ");
+  }
+  printf("\n");
+}
 //1
 /* 
  * bitXor - x^y using only ~ and & 
@@ -206,7 +213,14 @@ int isAsciiDigit(int x) {
  *   Rating: 3
  */
 int conditional(int x, int y, int z) {
-  return 2;
+  // x=0;
+  // printf("x, y, z: %d %d %d\n", x, y, z);
+  // print_bin(x);  0000             1010
+  // print_bin(!x); true             1010->true->false
+  // print_bin(~(!x));   1110        flase-> 0000->1111
+  // print_bin(~(!x)+1);  1111       0000
+  int mask = ~(~(!x) + 1); // 0000.  1111
+  return (mask & y) | (~mask & z);
 }
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
@@ -248,7 +262,44 @@ int logicalNeg(int x) {
  *  Rating: 4
  */
 int howManyBits(int x) {
-  return 2;
+  int sign, b16, b8, b4, b2, b1, b0, bits;
+  // printf("x: %d\n", x);
+  sign = x >> 31;
+  // If x is negative, flip all bits (~x)
+  // print_bin(x);
+  x = sign ^ x;
+  // print_bin(x);
+  
+  // Binary search to find the highest bit set
+  b16 = !!(x >> 16) << 4;  // Is bit 16-31 set?
+  x >>= b16;
+  // print_bin(x);
+  // printf("b16: %d\n", b16);
+
+  b8 = !!(x >> 8) << 3;
+  x >>= b8;
+  // print_bin(x);
+  // printf("b8: %d\n", b8);
+
+  b4 = !!(x >> 4) << 2;
+  x >>= b4;
+  // print_bin(x);
+  // printf("b4: %d\n", b4);
+
+  b2 = !!(x >> 2) << 1;
+  x >>= b2;
+  // print_bin(x);
+  // printf("b2: %d\n", b2);
+
+  b1 = !!(x >> 1);
+  x >>= b1;
+  // print_bin(x);
+  // printf("b1: %d\n", b1);
+
+  b0 = x;
+
+  bits = b16 + b8 + b4 + b2 + b1 + b0 + 1;  // +1 for sign bit
+  return bits;
 }
 //float
 /* 
