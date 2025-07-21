@@ -313,8 +313,32 @@ int howManyBits(int x) {
  *   Max ops: 30
  *   Rating: 4
  */
+
 unsigned float_twice(unsigned uf) {
-  return 2;
+  int sign = uf & 0x80000000; // Extract sign bit
+  int exp = ((uf >> 23) & 0xFF); // Extract exponent
+  int frac = uf & 0x007FFFFF; // Extract mantissa
+
+  if (exp == 0xFF) {
+      // NaN or infinity, just return original
+      return uf;
+  } else if (exp == 0) {
+      // Denormalized number
+      frac <<= 1;
+      // If it becomes normalized
+      if (frac & 0x800000) {
+          exp = 1;
+          frac &= 0x7FFFFF;
+      }
+  } else {
+      // Normalized number: just increase exponent
+      exp += 1;
+      if (exp == 0xFF) {
+          // Became infinity, zero out fraction
+          frac = 0;
+      }
+  }
+  return sign | (exp << 23) | frac; 
 }
 /* 
  * float_i2f - Return bit-level equivalent of expression (float) x
