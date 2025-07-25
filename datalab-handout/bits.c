@@ -350,8 +350,47 @@ unsigned float_twice(unsigned uf) {
  *   Rating: 4
  */
 unsigned float_i2f(int x) {
-  return 2;
+    if (x == 0) return 0;
+    if (x == 0x80000000) return 0xCF000000;
+
+    unsigned sign = 0;
+    if (x < 0) {
+        sign = 0x80000000;
+        x = -x;
+    }
+
+    int shift = 0;
+    unsigned temp = x;
+    while ((temp >>= 1) != 0) shift++;
+
+    int exp = shift + 127;
+    unsigned frac;
+
+    if (shift <= 23) {
+        frac = x << (23 - shift);
+    } else {
+        int right_shift = shift - 23;
+        unsigned extra_mask = (1U << right_shift) - 1;
+
+        frac = x >> right_shift;
+
+        unsigned round_bit = (x >> (right_shift - 1)) & 1;
+        unsigned sticky = x & (extra_mask >> 1);
+
+        if (round_bit && (sticky || (frac & 1))) {
+            frac++;
+        }
+
+        if (frac >> 24) {  // overflow after rounding
+            exp++;
+            frac >>= 1;
+        }
+    }
+
+    frac &= 0x7FFFFF;  // remove implicit leading 1
+    return sign | (exp << 23) | frac;
 }
+
 /* 
  * float_f2i - Return bit-level equivalent of expression (int) f
  *   for floating point argument f.
@@ -365,5 +404,36 @@ unsigned float_i2f(int x) {
  *   Rating: 4
  */
 int float_f2i(unsigned uf) {
-  return 2;
+    unsigned sign = uf >> 31;
+    unsigned exp = (uf >> 23) & 0xFF;
+    unsigned frac = uf & 0x7FFFFF;
+
+    int E = exp - 127;
+
+    // Special case: NaN or Inf
+    if (exp == 255)
+        return 0x80000000u;
+
+    // Too small to be 1
+    if (E < 0)
+        return 0;
+
+    // Too big to fit in int
+    if (E > 31)
+        return 0x80000000u;
+
+    // Add implicit leading 1
+    unsigned M = frac | 0x800000;
+
+    int result;
+    if (E > 23)
+        result = M << (E - 23);
+    else
+        result = M >> (23 - E);
+
+    // Apply sign
+    if (sign)
+        result = -result;
+
+    return result;
 }
