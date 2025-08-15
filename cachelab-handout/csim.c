@@ -23,6 +23,14 @@ cache_t cache;
 
 void accessData(unsigned long long addr) {
     time_tick++;
+    // 1
+    // 1 0 0 0 0 0 
+    // 0 1 1 1 1 1
+    // 【   TAG  】[  set   ][   block   ]
+    // 000[tag][set]
+    // 0000000100000
+    // 0000000011111
+    // 000000[set]
     unsigned long long set_index = (addr >> b) & ((1ULL << s) - 1);
     unsigned long long tag = addr >> (s + b);
     cache_set_t set = cache[set_index];
@@ -59,6 +67,7 @@ void accessData(unsigned long long addr) {
     }
     set[lru_idx].lru_counter = time_tick;
     set[lru_idx].tag = tag;
+    evicts++;
 }
 
 
