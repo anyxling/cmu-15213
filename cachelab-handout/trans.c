@@ -107,6 +107,69 @@ void trans_unroll(int M, int N, int A[N][M], int B[M][N]) {
     }
 }
 
+char trans_desc_unroll2[] = "Unroll transpose2";
+void trans_unroll2(int M, int N, int A[N][M], int B[M][N]) {
+    int i, ii, jj, temp, diagonal;
+
+    for (ii = 0; ii < N; ii += 8) {
+        for (jj = 0; jj < M; jj += 8) {
+            for (i = ii; i < min(ii+8, N); i++) {
+                if (i != jj) {
+                    B[jj][i] = A[i][jj];
+                } else {
+                    temp = A[i][i];
+                    diagonal = i;
+                }
+                if (i != jj+1) {
+                    B[jj+1][i] = A[i][jj+1];
+                } else {
+                    temp = A[i][i];
+                    diagonal = i;
+                }
+                if (i != jj+2) {
+                    B[jj+2][i] = A[i][jj+2];
+                } else {
+                    temp = A[i][i];
+                    diagonal = i;
+                }
+                if (i != jj+3) {
+                    B[jj+3][i] = A[i][jj+3];
+                } else {
+                    temp = A[i][i];
+                    diagonal = i;
+                }
+                if (i != jj+4) {
+                    B[jj+4][i] = A[i][jj+4];
+                } else {
+                    temp = A[i][i];
+                    diagonal = i;
+                }
+                if (i != jj+5) {
+                    B[jj+5][i] = A[i][jj+5];
+                } else {
+                    temp = A[i][i];
+                    diagonal = i;
+                }
+                if (i != jj+6) {
+                    B[jj+6][i] = A[i][jj+6];
+                } else {
+                    temp = A[i][i];
+                    diagonal = i;
+                }
+                if (i != jj+7) {
+                    B[jj+7][i] = A[i][jj+7];
+                } else {
+                    temp = A[i][i];
+                    diagonal = i;
+                }
+                if (ii == jj) {
+                    B[diagonal][diagonal] = temp;
+                }
+            }
+        }
+    }
+}
+
 /*
  * registerFunctions - This function registers your transpose
  *     functions with the driver.  At runtime, the driver will
@@ -124,7 +187,9 @@ void registerFunctions()
 
     registerTransFunction(trans_tile, trans_desc_tile);
     
-    registerTransFunction(trans_unroll, trans_desc_unroll); 
+    registerTransFunction(trans_unroll, trans_desc_unroll);
+    
+    registerTransFunction(trans_unroll2, trans_desc_unroll2); 
 
 }
 
