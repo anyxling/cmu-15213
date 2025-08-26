@@ -230,6 +230,27 @@ void *mm_realloc(void *ptr, size_t size)
 }
 
 
+/**
+ * print heap
+ * header size, alloc per block
+ * footer size, alloc
+ * ...
+ * epilogue header
+ */
+void print_heap()
+{
+    char *bp = heap_listp;
+    while (GET_SIZE(HDRP(bp))>0)
+    {
+        size_t hd_size = GET_SIZE(HDRP(bp));
+        size_t hd_alloc = GET_ALLOC(HDRP(bp)); 
+        size_t ft_size = GET_SIZE(FTRP(bp));
+        size_t ft_alloc = GET_ALLOC(FTRP(bp)); 
+        printf("Block @ %p  header size=%zu  header alloc=%zu  footer size=%zu  footer alloc=%zu\n", (void *)bp, hd_size, hd_alloc, ft_size, ft_alloc);
+        bp = NEXT_BLKP(bp);
+    }
+    printf("[Epilogue]\n");
+}
 
 
 
