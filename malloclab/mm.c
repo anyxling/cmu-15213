@@ -43,11 +43,10 @@ team_t team = {
  */
 
 /* single word (4) or double word (8) alignment */
-#define ALIGNMENT 8
+#define ALIGNMENT 16
 
 /* rounds up to the nearest multiple of ALIGNMENT */
-#define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0x7)
-
+#define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0xF)
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
@@ -62,14 +61,18 @@ team_t team = {
 #define GET(p) (*(unsigned int *)(p))
 #define PUT(p, val) (*(unsigned int *)(p) = val)
 
-#define GET_SIZE(p) (GET(p) & ~0x7)
+#define GET_SIZE(p) (GET(p) & ~0x7) // get payload size (header/footer not included)
 #define GET_ALLOC(p) (GET(p) & 0x1)
 
-#define HDRP(bp) ((char *)(bp) - WSIZE)
-#define FTRP(bp) ((char *)(bp) + GET_SIZE(HDRP(bp)) - DSIZE)
+#define IMP_HDRP(bp) ((char *)(bp) - DSIZE)
+#define EXP_HDRP(bp) ((char *)(bp) - WSIZE)
+#define IMP_FTRP(bp) ((char *)(bp) + GET_SIZE(IMP_HDRP(bp)) + WSIZE)
+#define EXP_FTRP(bp) ((char *)(bp) + GET_SIZE(IMP_HDRP(bp)))
 
-#define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE((char *)(bp) - WSIZE))
-#define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
+#define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(IMP_HDRP(bp)) + 2*DSIZE)
+#define NEXT_FREE_BLKP(bp) ((char *)(bp) + GET_SIZE(EXP_HDRP(bp)))
+#define PREV_BLKP(bp) ((char *)(bp) - 2*DSIZE - (GET_SIZE((char *)(bp) - 3*WSIZE)))
+#define PREV_FREE_BLKP(bp) ((char *)(bp) - GET_SIZE(EXP_FTRP(bp)))
 
 static char *heap_listp;
 
