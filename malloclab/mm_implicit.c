@@ -35,13 +35,6 @@ team_t team = {
     ""
 };
 
-/**
- * explicit list:
- *      4B             4B                 nB                  4B           4B
- * [imp_header,    exp_header,         payload          , exp_footer,   imp_footer]
- * [size 3B, 1B]   [dist 4B]                               [dist 4B]  [size 3B, 1B]
- */
-
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
 
