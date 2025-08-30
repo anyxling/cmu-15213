@@ -679,7 +679,7 @@ static int eval_mm_valid(trace_t *trace, int tracenum, range_t **ranges)
 	    app_error("Nonexistent request type in eval_mm_valid");
         }
 		
-		print_heap();
+		// print_heap();
 
     }
 
