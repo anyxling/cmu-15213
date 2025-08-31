@@ -80,25 +80,25 @@ static char *last_free;
 /* Coalesce adjacent free blocks */
 static void *coalesce(void *bp)
 {
-    size_t prev_alloc = GET_ALLOC(HDRP(PREV_BLKP(bp)));
-    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
-    size_t size = GET_SIZE(HDRP(bp));
+    size_t prev_alloc = GET_ALLOC(IMP_HDRP(PREV_BLKP(bp)));
+    size_t next_alloc = GET_ALLOC(IMP_HDRP(NEXT_BLKP(bp)));
+    size_t size = GET_SIZE(IMP_HDRP(bp));
 
     if (prev_alloc && next_alloc) {
         return bp;
     } else if (prev_alloc && !next_alloc) {
-        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
-        PUT(HDRP(bp), PACK(size, 0));
-        PUT(FTRP(bp), PACK(size, 0));
+        size += GET_SIZE(IMP_HDRP(NEXT_BLKP(bp))) + 4*WSIZE;
+        PUT(IMP_HDRP(bp), PACK(size, 0));
+        PUT(IMP_FTRP(NEXT_BLKP(bp)), PACK(size, 0));
     } else if (!prev_alloc && next_alloc) {
-        size += GET_SIZE(HDRP(PREV_BLKP(bp)));
-        PUT(FTRP(bp), PACK(size, 0));
-        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
+        size += GET_SIZE(IMP_HDRP(PREV_BLKP(bp))) + 4*WSIZE;
+        PUT(IMP_FTRP(bp), PACK(size, 0));
+        PUT(IMP_HDRP(PREV_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
     } else {
-        size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(HDRP(NEXT_BLKP(bp)));
-        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
-        PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
+        size += GET_SIZE(IMP_HDRP(PREV_BLKP(bp))) + GET_SIZE(IMP_HDRP(NEXT_BLKP(bp))) + 8*WSIZE;
+        PUT(IMP_HDRP(PREV_BLKP(bp)), PACK(size, 0));
+        PUT(IMP_FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
     }
     return bp;
@@ -135,7 +135,7 @@ static void *extend_heap(size_t words)
 {
     char *bp;
     size_t size = (words % 2) ? (words+1) * WSIZE : words * WSIZE;
-    if ((long)(bp = mem_sbrk(size)) == (void *)-1)
+    if ((void *)(bp = mem_sbrk(size)) == (void *)-1)
         return NULL;
 
     size_t payload_size = size - 4*WSIZE;
@@ -147,8 +147,7 @@ static void *extend_heap(size_t words)
 
     last_free = bp;
 
-    // return coalesce(bp);
-    return bp;
+    return coalesce(bp);
 }
 
 /* 
