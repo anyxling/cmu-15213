@@ -76,6 +76,7 @@ team_t team = {
 
 static char *heap_listp;
 static char *last_free;
+static char *first_free;
 
 /* Coalesce adjacent free blocks */
 static void *coalesce(void *bp)
@@ -118,16 +119,36 @@ static void *find_fit(size_t asize)
 /* Place block of asize bytes at start of free block bp */
 static void place(void *bp, size_t asize)
 {
-    size_t csize = GET_SIZE(HDRP(bp));
-    if ((csize-asize)>=2*DSIZE) {
-        PUT(HDRP(bp), PACK(asize, 1));
-        PUT(FTRP(bp), PACK(asize, 1));
+    size_t csize = GET_SIZE(IMP_HDRP(bp));
+    if ((csize-asize)>=4*DSIZE) {
+        PUT(IMP_HDRP(bp), PACK(asize, 1));
+        PUT(IMP_FTRP(bp), PACK(asize, 1));
         bp = NEXT_BLKP(bp);
-        PUT(HDRP(bp), PACK(csize-asize, 0));
-        PUT(FTRP(bp), PACK(csize-asize, 0));
+        PUT(IMP_HDRP(bp), PACK(csize-asize-2*DSIZE, 0));
+        PUT(IMP_FTRP(bp), PACK(csize-asize-2*DSIZE, 0));
+        if (bp != last_free) {
+            unsigned int free_dist = GET(EXP_HDRP(bp));
+            PUT(EXP_FTRP(NEXT_FREE_BLKP(bp)), free_dist - asize - 2*DSIZE);
+            if (bp == first_free) first_free = NEXT_BLKP(bp);
+        }
+        if (bp != first_free) {
+            unsigned int free_dist = GET(EXP_FTRP(bp));
+            PUT(EXP_HDRP(PREV_FREE_BLKP(bp)), free_dist + asize + 2*DSIZE);
+            if (bp == last_free) last_free = NEXT_BLKP(bp);
+        }
     } else {
-        PUT(HDRP(bp), PACK(csize, 1));
-        PUT(FTRP(bp), PACK(csize, 1));
+        PUT(IMP_HDRP(bp), PACK(csize, 1));
+        PUT(IMP_FTRP(bp), PACK(csize, 1));
+        if (bp == first_free) {
+            first_free = NEXT_FREE_BLKP(bp);
+            PUT(EXP_FTRP(first_free), 0);
+        } else if (bp == last_free) {
+            last_free = PREV_FREE_BLKP(bp);
+            PUT(EXP_HDRP(last_free), 0);
+        } else {
+            PUT(EXP_HDRP(PREV_FREE_BLKP(bp)), NEXT_FREE_BLKP(bp) - PREV_FREE_BLKP(bp));
+            PUT(EXP_FTRP(NEXT_FREE_BLKP(bp)), NEXT_FREE_BLKP(bp) - PREV_FREE_BLKP(bp));
+        }
     }
 }
 
@@ -167,7 +188,8 @@ int mm_init(void)
     PUT(heap_listp + 4*WSIZE, PACK(0, 1)); // epilogue implicit header
     PUT(heap_listp + 5*WSIZE, 0); // epilogue explicit header
     heap_listp += 2*WSIZE; // reach the start of payload
-    last_free = heap_listp+4*WSIZE;
+    last_free = heap_listp + 4*WSIZE;
+    first_free = last_free;
 
     if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
         return -1;
@@ -182,31 +204,31 @@ int mm_init(void)
  */
 void *mm_malloc(size_t size)
 {
-    // size_t asize;
-    // char *bp;
-    // size_t extend_size;
+    size_t asize;
+    char *bp;
+    size_t extend_size;
 
-    // if (size == 0) {
-    //     return NULL;
-    // }
+    if (size == 0) {
+        return NULL;
+    }
 
-    // if (size <= DSIZE) {
-    //     asize = 2 * DSIZE;
-    // } else {
-    //     asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
-    // }
+    if (size <= DSIZE) {
+        asize = 2 * DSIZE;
+    } else {
+        asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
+    }
 
-    // if ((bp=find_fit(asize)) != NULL) {
-    //     place(bp, asize);
-    //     return bp;
-    // }
+    if ((bp=find_fit(asize)) != NULL) {
+        place(bp, asize);
+        return bp;
+    }
 
-    // extend_size = MAX(asize, CHUNKSIZE);
-    // if ((bp=extend_heap(extend_size/WSIZE)) == NULL) {
-    //     return NULL;
-    // }
-    // place(bp, asize);
-    // return bp;
+    extend_size = MAX(asize, CHUNKSIZE);
+    if ((bp=extend_heap(extend_size/WSIZE)) == NULL) {
+        return NULL;
+    }
+    place(bp, asize);
+    return bp;
     return NULL;
 }
 
