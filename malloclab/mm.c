@@ -77,6 +77,7 @@ team_t team = {
 static char *heap_listp;
 static char *last_free;
 static char *first_free;
+static char *epilogue;
 
 /* Coalesce adjacent free blocks */
 static void *coalesce(void *bp)
@@ -108,11 +109,12 @@ static void *coalesce(void *bp)
 /* Find first-fit free block */
 static void *find_fit(size_t asize)
 {
-    // void *bp;
-    // for (bp=heap_listp; GET_SIZE(HDRP(bp))>0; bp=NEXT_BLKP(bp)) {
-    //     if (!GET_ALLOC(HDRP(bp)) && (asize<=GET_SIZE(HDRP(bp))))
-    //         return bp;
-    // }
+    void *bp;
+    for (bp=first_free; bp != last_free; bp=NEXT_FREE_BLKP(bp)) {
+        // printf("bp:%p\n", bp);
+        if (asize<=GET_SIZE(IMP_HDRP(bp)))
+            return bp;
+    }
     return NULL;
 }
 
@@ -120,12 +122,17 @@ static void *find_fit(size_t asize)
 static void place(void *bp, size_t asize)
 {
     size_t csize = GET_SIZE(IMP_HDRP(bp));
+    printf("place: %lld %lld\n", asize, csize);
     if ((csize-asize)>=4*DSIZE) {
         PUT(IMP_HDRP(bp), PACK(asize, 1));
         PUT(IMP_FTRP(bp), PACK(asize, 1));
         bp = NEXT_BLKP(bp);
         PUT(IMP_HDRP(bp), PACK(csize-asize-2*DSIZE, 0));
         PUT(IMP_FTRP(bp), PACK(csize-asize-2*DSIZE, 0));
+        bp = PREV_BLKP(bp);
+        if (bp == first_free && bp == last_free) {
+            first_free = last_free = NEXT_BLKP(bp);
+        }
         if (bp != last_free) {
             unsigned int free_dist = GET(EXP_HDRP(bp));
             PUT(EXP_FTRP(NEXT_FREE_BLKP(bp)), free_dist - asize - 2*DSIZE);
@@ -167,6 +174,7 @@ static void *extend_heap(size_t words)
     PUT(IMP_FTRP(bp), PACK(payload_size, 0));
 
     last_free = bp;
+    epilogue = NEXT_BLKP(last_free);
 
     return coalesce(bp);
 }
@@ -188,6 +196,7 @@ int mm_init(void)
     PUT(heap_listp + 4*WSIZE, PACK(0, 1)); // epilogue implicit header
     PUT(heap_listp + 5*WSIZE, 0); // epilogue explicit header
     heap_listp += 2*WSIZE; // reach the start of payload
+    epilogue = last_free;
     last_free = heap_listp + 4*WSIZE;
     first_free = last_free;
 
@@ -219,6 +228,8 @@ void *mm_malloc(size_t size)
     }
 
     if ((bp=find_fit(asize)) != NULL) {
+        // printf("THIS IS FIND FIT\n");
+        // print_heap();
         place(bp, asize);
         return bp;
     }
@@ -229,7 +240,6 @@ void *mm_malloc(size_t size)
     }
     place(bp, asize);
     return bp;
-    return NULL;
 }
 
 /*
@@ -276,9 +286,11 @@ void *mm_realloc(void *ptr, size_t size)
 void print_heap()
 {
     char *bp = heap_listp;
-    printf("heap list: %p, last free: %p\n", heap_listp, last_free);
-    while (GET_SIZE(EXP_HDRP(bp))>0)
+    printf("heap list: %p, first free: %p, last free: %p\n", heap_listp, first_free, last_free);
+    while (1)
     {
+        short end = 0;
+        if (bp == epilogue) end = 1;
         size_t hd_size = GET_SIZE(IMP_HDRP(bp));
         size_t hd_alloc = GET_ALLOC(IMP_HDRP(bp)); 
         size_t exp_hd = GET(EXP_HDRP(bp));
@@ -289,6 +301,7 @@ void print_heap()
 
         printf("Block @ %p  header size=%zu  header alloc=%zu  explicit header=%zu \
             explicit footer=%zu footer size=%zu  footer alloc=%zu\n", (void *)bp, hd_size, hd_alloc, exp_hd, exp_ft, ft_size, ft_alloc);
+        if (end) break;
         bp = NEXT_BLKP(bp);
     }
     printf("[Epilogue]\n");

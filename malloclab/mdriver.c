@@ -593,6 +593,7 @@ static int eval_mm_valid(trace_t *trace, int tracenum, range_t **ranges)
 	malloc_error(tracenum, 0, "mm_init failed.");
 	return 0;
     }
+	printf("init:\n");
 	print_heap();
 
     /* Interpret each operation in the trace in order */
@@ -679,7 +680,7 @@ static int eval_mm_valid(trace_t *trace, int tracenum, range_t **ranges)
 	    app_error("Nonexistent request type in eval_mm_valid");
         }
 		
-		// print_heap();
+		print_heap();
 
     }
 
