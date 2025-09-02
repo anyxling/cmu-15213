@@ -122,7 +122,7 @@ static void *find_fit(size_t asize)
 static void place(void *bp, size_t asize)
 {
     size_t csize = GET_SIZE(IMP_HDRP(bp));
-    printf("place: %lld %lld\n", asize, csize);
+    // printf("place: %lld %lld\n", asize, csize);
     if ((csize-asize)>=4*DSIZE) {
         PUT(IMP_HDRP(bp), PACK(asize, 1));
         PUT(IMP_FTRP(bp), PACK(asize, 1));
@@ -175,8 +175,8 @@ static void *extend_heap(size_t words)
 
     last_free = bp;
     epilogue = NEXT_BLKP(last_free);
-
-    return coalesce(bp);
+    return bp;
+    //return coalesce(bp);
 }
 
 /* 
@@ -196,9 +196,9 @@ int mm_init(void)
     PUT(heap_listp + 4*WSIZE, PACK(0, 1)); // epilogue implicit header
     PUT(heap_listp + 5*WSIZE, 0); // epilogue explicit header
     heap_listp += 2*WSIZE; // reach the start of payload
-    epilogue = last_free;
     last_free = heap_listp + 4*WSIZE;
     first_free = last_free;
+    epilogue = last_free;
 
     if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
         return -1;
@@ -286,7 +286,8 @@ void *mm_realloc(void *ptr, size_t size)
 void print_heap()
 {
     char *bp = heap_listp;
-    printf("heap list: %p, first free: %p, last free: %p\n", heap_listp, first_free, last_free);
+    printf("heap list: %p, epilogue: %p, first free: %p, last free: %p, \n", heap_listp, epilogue, first_free, last_free );
+    //for (int i=0; i<3; i++)
     while (1)
     {
         short end = 0;
