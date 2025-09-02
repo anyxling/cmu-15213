@@ -82,22 +82,24 @@ static char *epilogue;
 /* Coalesce adjacent free blocks */
 static void *coalesce(void *bp)
 {
-    size_t prev_alloc = GET_ALLOC(IMP_HDRP(PREV_BLKP(bp)));
-    size_t next_alloc = GET_ALLOC(IMP_HDRP(NEXT_BLKP(bp)));
+    char * prev_blkp = PREV_BLKP(bp);
+    char * next_blkp = NEXT_BLKP(bp);
+    size_t prev_alloc = GET_ALLOC(IMP_HDRP(prev_blkp));
+    size_t next_alloc = GET_ALLOC(IMP_HDRP(next_blkp));
     size_t size = GET_SIZE(IMP_HDRP(bp));
 
     if (prev_alloc && next_alloc) {
         return bp;
-    } else if (prev_alloc && !next_alloc) {
+    } else if (prev_alloc && !next_alloc && next_blkp != epilogue) {
         size += GET_SIZE(IMP_HDRP(NEXT_BLKP(bp))) + 4*WSIZE;
         PUT(IMP_HDRP(bp), PACK(size, 0));
         PUT(IMP_FTRP(NEXT_BLKP(bp)), PACK(size, 0));
-    } else if (!prev_alloc && next_alloc) {
+    } else if (!prev_alloc && next_alloc && prev_blkp != heap_listp) {
         size += GET_SIZE(IMP_HDRP(PREV_BLKP(bp))) + 4*WSIZE;
         PUT(IMP_FTRP(bp), PACK(size, 0));
         PUT(IMP_HDRP(PREV_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
-    } else {
+    } else if (prev_blkp != heap_listp && next_blkp != epilogue) {
         size += GET_SIZE(IMP_HDRP(PREV_BLKP(bp))) + GET_SIZE(IMP_HDRP(NEXT_BLKP(bp))) + 8*WSIZE;
         PUT(IMP_HDRP(PREV_BLKP(bp)), PACK(size, 0));
         PUT(IMP_FTRP(NEXT_BLKP(bp)), PACK(size, 0));
@@ -175,8 +177,8 @@ static void *extend_heap(size_t words)
 
     last_free = bp;
     epilogue = NEXT_BLKP(last_free);
-    return bp;
-    //return coalesce(bp);
+    // return bp;
+    return coalesce(bp);
 }
 
 /* 
