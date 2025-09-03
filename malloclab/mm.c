@@ -79,6 +79,43 @@ static char *last_free;
 static char *first_free;
 static char *epilogue;
 
+static void *_coalesce_prev(void *bp)
+{
+    char * prev_blkp = PREV_BLKP(bp);
+    char * next_blkp = NEXT_BLKP(bp);
+    size_t prev_alloc = GET_ALLOC(IMP_HDRP(prev_blkp));
+    size_t next_alloc = GET_ALLOC(IMP_HDRP(next_blkp));
+    size_t size = GET_SIZE(IMP_HDRP(bp));
+
+    PUT(EXP_HDRP(PREV_BLKP(bp)), GET(EXP_HDRP(PREV_BLKP(bp))) + GET(EXP_HDRP(bp)));
+    PUT(EXP_FTRP(bp), EXP_FTRP(PREV_BLKP(bp)));
+    PUT(EXP_FTRP(NEXT_FREE_BLKP(bp)), NEXT_FREE_BLKP(bp)-PREV_BLKP(bp));
+    size += GET_SIZE(IMP_HDRP(PREV_BLKP(bp))) + 4*WSIZE;
+    PUT(IMP_FTRP(bp), PACK(size, 0));
+    PUT(IMP_HDRP(PREV_BLKP(bp)), PACK(size, 0));
+    bp = PREV_BLKP(bp);
+
+    return bp;
+}
+
+static void *_coalesce_next(void *bp)
+{
+    char * prev_blkp = PREV_BLKP(bp);
+    char * next_blkp = NEXT_BLKP(bp);
+    size_t prev_alloc = GET_ALLOC(IMP_HDRP(prev_blkp));
+    size_t next_alloc = GET_ALLOC(IMP_HDRP(next_blkp));
+    size_t size = GET_SIZE(IMP_HDRP(bp));
+
+    PUT(EXP_HDRP(bp), GET(EXP_HDRP(bp)) + GET(EXP_HDRP(NEXT_BLKP(bp))));
+    PUT(EXP_FTRP(NEXT_BLKP(bp)), EXP_FTRP(bp));
+    PUT(EXP_FTRP(NEXT_FREE_BLKP(bp)), NEXT_FREE_BLKP(bp)-bp);
+    size += GET_SIZE(IMP_HDRP(NEXT_BLKP(bp))) + 4*WSIZE;
+    PUT(IMP_HDRP(bp), PACK(size, 0));
+    PUT(IMP_FTRP(NEXT_BLKP(bp)), PACK(size, 0));
+
+    return bp;
+}
+
 /* Coalesce adjacent free blocks */
 static void *coalesce(void *bp)
 {
@@ -91,18 +128,17 @@ static void *coalesce(void *bp)
     if (prev_alloc && next_alloc) {
         return bp;
     } else if (prev_alloc && !next_alloc && next_blkp != epilogue) {
-        size += GET_SIZE(IMP_HDRP(NEXT_BLKP(bp))) + 4*WSIZE;
-        PUT(IMP_HDRP(bp), PACK(size, 0));
-        PUT(IMP_FTRP(NEXT_BLKP(bp)), PACK(size, 0));
+        return _coalesce_next(bp);
     } else if (!prev_alloc && next_alloc && prev_blkp != heap_listp) {
-        size += GET_SIZE(IMP_HDRP(PREV_BLKP(bp))) + 4*WSIZE;
-        PUT(IMP_FTRP(bp), PACK(size, 0));
-        PUT(IMP_HDRP(PREV_BLKP(bp)), PACK(size, 0));
-        bp = PREV_BLKP(bp);
+        return _coalesce_prev(bp);
     } else if (prev_blkp != heap_listp && next_blkp != epilogue) {
-        size += GET_SIZE(IMP_HDRP(PREV_BLKP(bp))) + GET_SIZE(IMP_HDRP(NEXT_BLKP(bp))) + 8*WSIZE;
-        PUT(IMP_HDRP(PREV_BLKP(bp)), PACK(size, 0));
-        PUT(IMP_FTRP(NEXT_BLKP(bp)), PACK(size, 0));
+        bp = _coalesce_next(bp);
+        bp = _coalesce_prev(bp);
+        // size += GET_SIZE(IMP_HDRP(PREV_BLKP(bp))) + GET_SIZE(IMP_HDRP(NEXT_BLKP(bp))) + 8*WSIZE;
+        // PUT(IMP_HDRP(PREV_BLKP(bp)), PACK(size, 0));
+        // PUT(IMP_FTRP(NEXT_BLKP(bp)), PACK(size, 0));
+        // PUT(EXP_HDRP(PREV_BLKP(bp)), EXP_HDRP(PREV_BLKP(bp)) + EXP_HDRP(bp) + EXP_HDRP(NEXT_BLKP(bp)));
+        // PUT(EXP_FTRP(NEXT_BLKP(bp)), EXP_FTRP(NEXT_BLKP(bp)) + EXP_FTRP(bp) + EXP_HDRP(PREV_BLKP(bp)));
         bp = PREV_BLKP(bp);
     }
     return bp;
@@ -137,12 +173,12 @@ static void place(void *bp, size_t asize)
         }
         if (bp != last_free) {
             unsigned int free_dist = GET(EXP_HDRP(bp));
-            PUT(EXP_FTRP(NEXT_FREE_BLKP(bp)), free_dist - asize - 2*DSIZE);
+            PUT(EXP_FTRP(NEXT_FREE_BLKP(bp)), free_dist - asize - 2*DSIZE); // TO BE FIXED
             if (bp == first_free) first_free = NEXT_BLKP(bp);
         }
         if (bp != first_free) {
             unsigned int free_dist = GET(EXP_FTRP(bp));
-            PUT(EXP_HDRP(PREV_FREE_BLKP(bp)), free_dist + asize + 2*DSIZE);
+            PUT(EXP_HDRP(PREV_FREE_BLKP(bp)), free_dist + asize + 2*DSIZE); // TO BE FIXED
             if (bp == last_free) last_free = NEXT_BLKP(bp);
         }
     } else {
@@ -249,11 +285,15 @@ void *mm_malloc(size_t size)
  */
 void mm_free(void *ptr)
 {
-    // if (ptr == NULL) return;
-    // size_t size = GET_SIZE(HDRP(ptr));
-    // PUT(HDRP(ptr), PACK(size, 0));
-    // PUT(FTRP(ptr), PACK(size, 0));
-    // coalesce(ptr);
+    if (ptr == NULL) return;
+    size_t size = GET_SIZE(HDRP(ptr));
+    char old_first_free = first_free;
+    first_free = ptr;
+    PUT(IMP_HDRP(first_free), PACK(size, 0));
+    PUT(IMP_FTRP(first_free), PACK(size, 0));
+    PUT(EXP_HDRP(first_free), old_first_free-first_free);
+    PUT(EXP_FTRP(first_free), 0);
+    coalesce(ptr);
 }
 
 /*
