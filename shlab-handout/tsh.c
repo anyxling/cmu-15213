@@ -231,7 +231,22 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
-    return 0;     /* not a builtin command */
+    if (argv[0] == NULL)
+        return;
+
+    char *cmd_name = argv[0];
+    extern char **environ;
+    pid_t pid;
+    if (cmd_name != "quit" && cmd_name != "fg" && cmd_name != "bg" && cmd_name != "jobs")
+        return 0;     /* not a builtin command */
+    else {
+        if ((pid = fork()) == 0) {
+            execve("/bin/ls", argv, environ);
+            printf("%s: %s\n", argv[0], strerror(errno));
+            exit(127);
+        }
+        return; 
+    }
 }
 
 /* 
