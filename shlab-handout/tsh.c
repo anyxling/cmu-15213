@@ -136,8 +136,10 @@ int main(int argc, char **argv)
 	    printf("%s", prompt);
 	    fflush(stdout);
 	}
+
 	if ((fgets(cmdline, MAXLINE, stdin) == NULL) && ferror(stdin))
 	    app_error("fgets error");
+    
 	if (feof(stdin)) { /* End of file (ctrl-d) */
 	    fflush(stdout);
 	    exit(0);
@@ -165,7 +167,16 @@ int main(int argc, char **argv)
 */
 void eval(char *cmdline) 
 {
-    return;
+    pid_t pid;
+    char * const* ph = (char * const*)"";
+    if (strcmp(cmdline, "quit\n") == 0)
+        exit(0);
+    
+    else {
+        if ((pid = fork()) == 0) { // child
+            execve("/usr/bin/ls", ph, ph);
+        }
+    }
 }
 
 /* 
@@ -231,22 +242,7 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
-    if (argv[0] == NULL)
-        return;
-
-    char *cmd_name = argv[0];
-    extern char **environ;
-    pid_t pid;
-    if (cmd_name != "quit" && cmd_name != "fg" && cmd_name != "bg" && cmd_name != "jobs")
-        return 0;     /* not a builtin command */
-    else {
-        if ((pid = fork()) == 0) {
-            execve("/bin/ls", argv, environ);
-            printf("%s: %s\n", argv[0], strerror(errno));
-            exit(127);
-        }
-        return; 
-    }
+    return 0;
 }
 
 /* 
